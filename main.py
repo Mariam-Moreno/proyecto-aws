@@ -1,15 +1,24 @@
-from fastapi import FastAPI, HTTPException, status
+from fastapi import FastAPI, HTTPException, status, Request
+from fastapi.exceptions import RequestValidationError
+from fastapi.responses import JSONResponse
 from pydantic import BaseModel, Field
 from typing import List
 
 app = FastAPI(title="API REST Universidad")
 
-# Arrays en memoria requeridos
+# --- INTERCEPTOR DE ERRORES ---
+@app.exception_handler(RequestValidationError)
+async def validation_exception_handler(request: Request, exc: RequestValidationError):
+    return JSONResponse(
+        status_code=status.HTTP_400_BAD_REQUEST,
+        content={"detail": "Validación fallida"}
+    )
+
+# --- BASES DE DATOS EN MEMORIA ---
 alumnos_db = []
 profesores_db = []
 
 # --- ENTIDADES ---
-# Field(..., min_length=1) valida que el campo no esté vacío y los tipos aseguran el dato correcto
 class Alumno(BaseModel):
     id: int
     nombres: str = Field(..., min_length=1)
@@ -19,7 +28,7 @@ class Alumno(BaseModel):
 
 class Profesor(BaseModel):
     id: int
-    numeroEmpleado: str = Field(..., min_length=1)
+    numeroEmpleado: int
     nombres: str = Field(..., min_length=1)
     apellidos: str = Field(..., min_length=1)
     horasClase: int
@@ -29,6 +38,11 @@ class Profesor(BaseModel):
 def get_alumnos():
     return alumnos_db
 
+@app.post("/alumnos", response_model=Alumno, status_code=status.HTTP_201_CREATED)
+def create_alumno(alumno: Alumno):
+    alumnos_db.append(alumno)
+    return alumno
+
 @app.get("/alumnos/{id}", response_model=Alumno, status_code=status.HTTP_200_OK)
 def get_alumno(id: int):
     for a in alumnos_db:
@@ -36,15 +50,11 @@ def get_alumno(id: int):
             return a
     raise HTTPException(status_code=404, detail="Alumno no encontrado")
 
-@app.post("/alumnos", response_model=Alumno, status_code=status.HTTP_201_CREATED)
-def create_alumno(alumno: Alumno):
-    alumnos_db.append(alumno)
-    return alumno
-
 @app.put("/alumnos/{id}", response_model=Alumno, status_code=status.HTTP_200_OK)
 def update_alumno(id: int, alumno_actualizado: Alumno):
     for index, a in enumerate(alumnos_db):
         if a.id == id:
+            alumno_actualizado.id = id
             alumnos_db[index] = alumno_actualizado
             return alumno_actualizado
     raise HTTPException(status_code=404, detail="Alumno no encontrado")
@@ -62,6 +72,11 @@ def delete_alumno(id: int):
 def get_profesores():
     return profesores_db
 
+@app.post("/profesores", response_model=Profesor, status_code=status.HTTP_201_CREATED)
+def create_profesor(profesor: Profesor):
+    profesores_db.append(profesor)
+    return profesor
+
 @app.get("/profesores/{id}", response_model=Profesor, status_code=status.HTTP_200_OK)
 def get_profesor(id: int):
     for p in profesores_db:
@@ -69,15 +84,11 @@ def get_profesor(id: int):
             return p
     raise HTTPException(status_code=404, detail="Profesor no encontrado")
 
-@app.post("/profesores", response_model=Profesor, status_code=status.HTTP_201_CREATED)
-def create_profesor(profesor: Profesor):
-    profesores_db.append(profesor)
-    return profesor
-
 @app.put("/profesores/{id}", response_model=Profesor, status_code=status.HTTP_200_OK)
 def update_profesor(id: int, profesor_actualizado: Profesor):
     for index, p in enumerate(profesores_db):
         if p.id == id:
+            profesor_actualizado.id = id
             profesores_db[index] = profesor_actualizado
             return profesor_actualizado
     raise HTTPException(status_code=404, detail="Profesor no encontrado")
